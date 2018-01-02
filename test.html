@@ -1,0 +1,301 @@
+<html>
+<head>
+<style>
+h1 {
+display:inline-block;
+}
+
+#main {
+position:relative;
+text-align: center;
+width:875;
+height:150;
+z-Index:1;
+}
+
+#ask {
+margin-left:22;
+text-align: left;
+}
+
+#holst {
+position: absolute;
+top:60;
+left:30;
+width:850;
+height:136;
+}
+
+input.ask {
+position:relative;
+text-align:center;
+width:22;
+height:22;
+font-size:16;
+border-radius:2px;
+}
+
+#result_edit {
+position:relative;
+display:none;
+top:-3;
+width:50;
+height:30;
+font-size:20;
+border-radius:2px;
+text-align:center;
+}
+
+input[type="button"]{
+display:block;
+}
+</style>
+</head>
+<body onload="start()">
+<div id="main">
+<h1 id="a"></h1>
+<h1>+</h1>
+<h1 id="b"></h1>
+<h1>=</h1>
+<h1 id="result">?</h1>
+<input id="result_edit" onchange="check_result();"/>
+<div id="ask"></div>
+</div>
+<br>
+<svg id="holst" xmlns="http://www.w3.org/2000/svg"></svg>
+<img id='axis' src="sprite.png"/>
+<input type="button" onclick="test()" value="Контрольный пример (7+4)">
+</body>
+
+<script language="javascript">
+'use strict';
+
+var app = {};
+app.svg = {};
+
+app.svg.SVG = function(params) {
+	this.ns = 'http://www.w3.org/2000/svg';
+	this.svg = document.querySelector(params.selector);
+	this.axis = params.axis;
+
+	//Маркер
+	var defs = document.createElementNS(this.ns, 'defs');
+ 
+	var arrow = document.createElementNS(this.ns, 'marker');
+	var arrowAttrs = {
+		id: 'arrow',
+		markerWidth: 10,
+		markerHeight: 10,
+		orient: 'auto',
+		markerUnits: 'strokeWidth',
+		refX: 8,
+		refY: 2,
+	}
+	this.setAttributes(arrow, arrowAttrs);
+ 
+	var arrowPath = document.createElementNS(this.ns, 'path');
+	var arrowPathAttrs = {
+		stroke: 'MediumVioletRed',
+		'stroke-width': 1,
+		'fill-opacity': 0,
+		d: new app.svg.Path().M(0, 0).L(8, 2).L(0, 4).toString()
+	}
+	this.setAttributes(arrowPath, arrowPathAttrs);
+ 
+	arrow.appendChild(arrowPath);
+	defs.appendChild(arrow)
+	this.svg.appendChild(defs);
+
+	this.svgMain = document.createElementNS(this.ns, 'g');
+	this.svgMain.setAttribute('id', 'svg-main');
+	this.svg.appendChild(this.svgMain); 
+}
+
+app.svg.SVG.prototype.setAttributes = function(el, attrs) {
+	 for (var k in attrs) el.setAttribute(k, attrs[k]);
+}
+
+//Отрисовка кривой
+app.svg.SVG.prototype.drawQ = function(start, end) {
+	//координаты концов и длина
+	var qStart = this.axis.x + start * this.axis.step;
+	var qDistance = this.axis.step * (end - start);
+	var qEnd = qStart + qDistance;
+	//координаты контрольной точки
+	var qCx = qStart + qDistance / 2;
+	var qCy = this.axis.y - qDistance / 2;
+	var q = document.createElementNS(this.ns, 'path');
+	var qAttrs = {
+		class:"line",
+		stroke: 'MediumVioletRed',
+		'stroke-width': 1,
+		'fill-opacity': 0,
+		'marker-end': 'url(#arrow)',
+		d: new app.svg.Path().M(qStart, this.axis.y).Q(qCx, qCy, qEnd, this.axis.y).toString()
+  	}
+	this.setAttributes(q, qAttrs);
+	this.svg.appendChild(q);
+	return q;
+}
+
+app.svg.Path = function() {
+	this.path = [];
+}
+
+app.svg.Path.prototype.toString = function() {
+	return this.path.join(' ');
+}
+
+app.svg.Path.prototype.M = function(x, y) {
+	this.path = this.path.concat(['M', x, y]);
+	return this;
+}
+
+app.svg.Path.prototype.Q = function(cx, cy, x, y) {
+	this.path = this.path.concat(['Q', cx, cy, x, y]);
+	return this;
+}
+
+app.svg.Path.prototype.L = function(x, y) {
+	this.path = this.path.concat(['L', x, y]);
+	return this;
+}
+
+var axis = {
+	x: 12,
+	y: 125,
+	step: 39
+}
+
+var svg;
+
+//Центр кривой
+app.svg.SVG.prototype.getMiddlePoint = function(el) {
+	return el.getPointAtLength(el.getTotalLength() / 2);
+}
+
+//Вывод поля ввода
+app.svg.SVG.prototype.input = function(str, params) {
+	var edit = document.createElement('input');
+	var attrs = {
+		class:"ask",
+		maxlength:1,
+	}
+	edit.style.left = params.left;
+	edit.style.top = params.top;
+	this.setAttributes(edit, attrs);
+	edit.textContent = str;
+	document.querySelector("#ask").appendChild(edit);
+	return edit;
+}
+
+//Вывод текста
+app.svg.SVG.prototype.text = function(str, params) {
+	var text = document.createElementNS(this.ns, 'text');
+	var attrs = {
+		'text-anchor': 'middle',
+		fill: 'black',
+		'font-size': 16,
+	}
+	this.setAttributes(text, attrs);
+	this.setAttributes(text, params);
+	text.textContent = str;
+	this.svgMain.appendChild(text);
+	return text;
+}
+
+//Генерация случайных целых чисел
+function randomInt(min, max){
+	return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+var a = randomInt(6,9);
+var b = randomInt(11-a,14-a);
+var first_answer = 0; //Признак ответа первого числа
+
+function check_result(){
+	var self = document.querySelector("#result_edit");
+	if(self.value == a+b){
+		var elem = document.querySelector("#result");
+		elem.innerHTML = a+b;
+		self.style.display = "none";
+		elem.style.display = "inline-block";
+	}
+	else{
+		self.style.color = "red";
+	}
+}
+
+function check(){
+	if(!first_answer){
+		if(this.value == a){
+			this.remove();
+			//Перерисовка линии для упрощения поиска координат
+			var middlePoint = svg.getMiddlePoint(svg.drawQ(0, a));
+			svg.text(a, {x: middlePoint.x, y: middlePoint.y - 5 });
+			document.querySelector("#a").style = "background-color:white";
+			svg.drawQ(a,a+b);
+			middlePoint = svg.getMiddlePoint(svg.drawQ(a, a+b));
+			var elem2 = svg.input(a, {left: middlePoint.x - 11, top: middlePoint.y - 55 });
+			elem2.onchange = check;
+			first_answer = 1;
+			elem2.focus();
+		}
+		else{
+			this.style.color = "red";
+			document.querySelector("#a").style = "background-color:orange";
+		}
+	}
+	else{
+		if(this.value == b){
+			this.remove();
+			//Перерисовка линии для упрощения поиска координат
+			var middlePoint = svg.getMiddlePoint(svg.drawQ(a, a+b));
+			svg.text(b, {x: middlePoint.x, y: middlePoint.y - 5 });
+			document.querySelector("#b").style = "background-color:white";
+			document.querySelector("#result").style.display = "none";
+			var result = document.querySelector("#result_edit");
+			result.style.display = "inline";
+			result.focus();
+		}
+		else{
+			this.style.color = "red";
+			document.querySelector("#b").style = "background-color:orange";
+		}
+	}
+}
+
+function start(){
+	svg = new app.svg.SVG({
+		selector: '#holst',
+		axis: axis
+	});
+	document.getElementById('a').innerHTML = a;
+	document.getElementById('b').innerHTML = b;
+	svg.drawQ(0,a);
+	//Рисуем поля ввода
+	var middlePoint = svg.getMiddlePoint(svg.drawQ(0, a));
+	var elem = svg.input(a, {left: middlePoint.x - 11, top: middlePoint.y - 55 });
+	elem.onchange  = check;
+	elem.focus();
+}
+
+function test(){
+	var result = document.querySelector("#result");
+	result.innerHTML = "?";
+	result.style.display = "inline-block";
+	result = document.querySelector("#result_edit")
+	result.value = "";
+	result.style.color = "black";
+	result.style.display = "none";
+	document.querySelector("#holst").innerHTML = "";
+	if(document.querySelector("input.ask"))
+		document.querySelector("input.ask").remove();
+	first_answer = 0;
+	a = 7;
+	b = 4;
+	start();
+}
+</script>
+
+</html>
